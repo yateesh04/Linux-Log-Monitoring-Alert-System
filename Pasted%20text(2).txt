@@ -1,0 +1,747 @@
+C.1 Automatic Log Monitoring — scripts/auto_monitor.sh 
+Purpose: Monitors the sample log for newly added entries and records alerts when important 
+events are detected. 
+#!/bin/bash 
+ 
+ 
+PROJECT_DIR="$HOME/linux-log-monitor" 
+LOG_FILE="$PROJECT_DIR/logs/sample.log" 
+ALERT_FILE="$PROJECT_DIR/alerts/automatic_alerts.txt" 
+ 
+mkdir -p "$PROJECT_DIR/alerts" 
+ 
+ 
+echo "Linux Log Monitoring - Automatic Monitor" 
+echo "Press Ctrl+C to stop monitoring." 
+ 
+touch "$ALERT_FILE" 
+ 
+ 
+LAST_LINE=$(wc -l < "$LOG_FILE") 
+ 
+ 
+while true; do 
+CURRENT_LINE=$(wc -l < "$LOG_FILE") 
+ 
+ 
+if [ "$CURRENT_LINE" -gt "$LAST_LINE" ]; then 
+NEW_LINES=$((CURRENT_LINE - LAST_LINE)) 
+ 
+tail -n "$NEW_LINES" "$LOG_FILE" | 
+while IFS= read -r line; do 
+Linux System Administration E1ITA307 
+35 
+ 
+ 
+if echo "$line" | grep -Eiq 'ERROR|CRITICAL|FAILED|failure'; then 
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S') 
+echo "[$TIMESTAMP] ALERT: $line" | 
+tee -a "$ALERT_FILE" 
+fi 
+done 
+ 
+LAST_LINE="$CURRENT_LINE" 
+fi 
+ 
+ 
+sleep 5 
+done 
+C.2 Main Menu — scripts/monitor.sh 
+Purpose: Provides a menu-driven terminal interface for accessing the monitoring system's 
+features. 
+#!/bin/bash 
+ 
+ 
+PROJECT_DIR="$HOME/linux-log-monitor" 
+LOG_FILE="$PROJECT_DIR/logs/sample.log" 
+ 
+while true; do 
+clear 
+echo "========================================" 
+echo " LINUX LOG MONITORING & ALERT SYSTEM" 
+echo "========================================" 
+echo "1. View Sample Log" 
+Linux System Administration E1ITA307 
+;; 
+36 
+ 
+ 
+echo "2. Search Logs" 
+echo "3. Detect Failed Login Attempts" 
+echo "4. Generate Report" 
+echo "5. View Recent Alerts" 
+echo "6. System Information" 
+echo "7. Full Log Analysis" 
+echo "8. View Real Linux Logs" 
+echo "9. Exit" 
+echo "10. Start Automatic Monitoring" 
+echo "========================================" 
+ 
+ 
+read -rp "Enter your choice: " choice 
+ 
+ 
+case "$choice" in 
+1) 
+cat "$LOG_FILE" 
+;; 
+2) 
+"$PROJECT_DIR/scripts/search_logs.sh" 
+;; 
+3) 
+"$PROJECT_DIR/scripts/failed_login.sh" 
+;; 
+4) 
+"$PROJECT_DIR/scripts/generate_report.sh" 
+Linux System Administration E1ITA307 
+;; 
+37 
+ 
+ 
+5) 
+cat "$PROJECT_DIR/alerts/failed_login_alerts.txt" 2>/dev/null 
+cat "$PROJECT_DIR/alerts/automatic_alerts.txt" 2>/dev/null 
+;; 
+6) 
+hostname 
+whoami 
+uptime 
+df -h / 
+;; 
+7) 
+"$PROJECT_DIR/scripts/analyzer.sh" 
+;; 
+8) 
+"$PROJECT_DIR/scripts/real_log_viewer.sh" 
+;; 
+9) 
+echo "Exiting the monitoring system." 
+exit 0 
+;; 
+10) 
+"$PROJECT_DIR/scripts/auto_monitor.sh" 
+;; 
+*) 
+echo "Invalid choice. Please try again." 
+Linux System Administration E1ITA307 
+38 
+ 
+ 
+esac 
+ 
+ 
+read -rp "Press Enter to continue..." 
+done 
+C.3 Log Analyzer — scripts/analyzer.sh 
+Purpose: Analyzes the sample log and counts important log categories. 
+#!/bin/bash 
+ 
+PROJECT_DIR="$HOME/linux-log-monitor" 
+LOG_FILE="$PROJECT_DIR/logs/sample.log" 
+ 
+if [ ! -f "$LOG_FILE" ]; then 
+echo "Error: Log file not found." 
+exit 1 
+fi 
+ 
+ 
+echo "========== LOG ANALYSIS ==========" 
+echo "Total log entries: $(wc -l < "$LOG_FILE")" 
+echo "ERROR entries: $(grep -ci 'ERROR' "$LOG_FILE")" 
+echo "CRITICAL entries: $(grep -ci 'CRITICAL' "$LOG_FILE")" 
+echo "Failed login entries: $(grep -Eic 'FAILED|failed login' "$LOG_FILE")" 
+echo "==================================" 
+C.4 Failed Login Detection — scripts/failed_login.sh 
+Purpose: Identifies failed-login messages in the sample log and saves the matching entries to an 
+alert file. 
+#!/bin/bash 
+Linux System Administration E1ITA307 
+39 
+ 
+ 
+ 
+ 
+PROJECT_DIR="$HOME/linux-log-monitor" 
+LOG_FILE="$PROJECT_DIR/logs/sample.log" 
+ALERT_FILE="$PROJECT_DIR/alerts/failed_login_alerts.txt" 
+ 
+mkdir -p "$PROJECT_DIR/alerts" 
+ 
+ 
+if [ ! -f "$LOG_FILE" ]; then 
+echo "Error: Sample log not found." 
+exit 1 
+fi 
+ 
+ 
+echo "Failed Login Detection" 
+grep -Ein 'failed login|authentication failure|invalid password' \ 
+"$LOG_FILE" > "$ALERT_FILE" 
+ 
+if [ -s "$ALERT_FILE" ]; then 
+echo "Failed login events detected:" 
+cat "$ALERT_FILE" 
+else 
+echo "No failed login events found." 
+fi 
+C.5 Report Generation — scripts/generate_report.sh 
+Purpose: Creates a text report containing log counts and failed-login information. 
+#!/bin/bash 
+Linux System Administration E1ITA307 
+40 
+ 
+ 
+PROJECT_DIR="$HOME/linux-log-monitor" 
+LOG_FILE="$PROJECT_DIR/logs/sample.log" 
+REPORT_FILE="$PROJECT_DIR/reports/log_summary.txt" 
+ 
+mkdir -p "$PROJECT_DIR/reports" 
+ 
+ 
+if [ ! -f "$LOG_FILE" ]; then 
+echo "Error: Sample log not found." 
+exit 1 
+fi 
+ 
+ 
+{ 
+echo "LINUX LOG MONITORING REPORT" 
+echo "Generated: $(date)" 
+echo " " 
+echo "Total entries: $(wc -l < "$LOG_FILE")" 
+echo "ERROR entries: $(grep -ci 'ERROR' "$LOG_FILE")" 
+echo "CRITICAL entries: $(grep -ci 'CRITICAL' "$LOG_FILE")" 
+echo "Failed login entries: $(grep -Eic 'FAILED|failed login' "$LOG_FILE")" 
+echo " " 
+} > "$REPORT_FILE" 
+ 
+ 
+echo "Report generated: $REPORT_FILE" 
+cat "$REPORT_FILE" 
+C.6 Log Search — scripts/search_logs.sh 
+Purpose: Searches the sample log for entries containing a user-provided keyword. 
+Linux System Administration E1ITA307 
+41 
+ 
+ 
+#!/bin/bash 
+ 
+ 
+PROJECT_DIR="$HOME/linux-log-monitor" 
+LOG_FILE="$PROJECT_DIR/logs/sample.log" 
+ 
+if [ ! -f "$LOG_FILE" ]; then 
+echo "Error: Sample log not found." 
+exit 1 
+fi 
+ 
+ 
+read -rp "Enter keyword to search: " keyword 
+ 
+ 
+if [ -z "$keyword" ]; then 
+echo "Error: Search keyword cannot be empty." 
+exit 1 
+fi 
+ 
+ 
+grep -inF -- "$keyword" "$LOG_FILE" 
+ 
+ 
+if [ "$?" -ne 0 ]; then 
+echo "No matching entries found." 
+Fi 
+Linux System Administration E1ITA307 
+42 
+ 
+ 
+C.7 Real Linux Log Viewer — scripts/real_log_viewer.sh 
+Purpose: Displays selected system log information where the current user has permission to 
+access it. 
+#!/bin/bash 
+ 
+ 
+echo "========== REAL LINUX LOG VIEWER ==========" 
+echo "1. Authentication log" 
+echo "2. System journal" 
+echo "3. Recent kernel messages" 
+read -rp "Choose a source: " choice 
+ 
+case "$choice" in 
+1) 
+if [ -r /var/log/auth.log ]; then 
+tail -n 20 /var/log/auth.log 
+else 
+echo "Authentication log unavailable or permission denied." 
+fi 
+;; 
+2) 
+journalctl -n 20 --no-pager 
+;; 
+3) 
+journalctl -k -n 20 --no-pager 
+;; 
+*) 
+Linux System Administration E1ITA307 
+43 
+ 
+ 
+ 
+ 
+ 
+ 
+esac 
+echo "Invalid choice." 
+;; 
+C.8 System Log Viewer — scripts/system_log_viewer.sh 
+Purpose: Displays a selected system log source. 
+#!/bin/bash 
+ 
+echo "========== SYSTEM LOG VIEWER ==========" 
+echo "1. System log" 
+echo "2. Authentication log" 
+echo "3. Kernel log" 
+read -rp "Choose a log source: " choice 
+ 
+ 
+case "$choice" in 
+1) FILE="/var/log/syslog" ;; 
+2) FILE="/var/log/auth.log" ;; 
+3) journalctl -k -n 30 --no-pager; exit 0 ;; 
+*) 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+esac 
+echo "Invalid choice." 
+exit 1 
+;; 
+ 
+ 
+if [ -r "$FILE" ]; then 
+tail -n 30 "$FILE" 
+else 
+Linux System Administration E1ITA307 
+44 
+ 
+ 
+echo "Log file unavailable or permission denied: $FILE" 
+fi 
+C.9 Python Backend — server.py 
+Purpose: Runs the local HTTP server, serves the dashboard, and provides API endpoints for 
+monitoring operations. 
+#!/usr/bin/env python3 
+ 
+ 
+import json 
+import subprocess 
+from http.server import BaseHTTPRequestHandler, HTTPServer 
+from pathlib import Path 
+from urllib.parse import urlparse, parse_qs 
+ 
+ 
+PROJECT_DIR = Path.home() / "linux-log-monitor" 
+WEB_FILE = PROJECT_DIR / "web" / "index.html" 
+LOG_FILE = PROJECT_DIR / "logs" / "sample.log" 
+ALERT_FILE = PROJECT_DIR / "alerts" / "automatic_alerts.txt" 
+ 
+ 
+def run_script(name, *args): 
+path = PROJECT_DIR / "scripts" / name 
+return subprocess.run( 
+["bash", str(path), *args], 
+capture_output=True, 
+text=True, 
+timeout=30 
+) 
+Linux System Administration E1ITA307 
+45 
+ 
+ 
+ 
+ 
+class Handler(BaseHTTPRequestHandler): 
+def send_json(self, data, status=200): 
+body = json.dumps(data).encode() 
+self.send_response(status) 
+self.send_header("Content-Type", "application/json") 
+self.send_header("Content-Length", str(len(body))) 
+self.end_headers() 
+self.wfile.write(body) 
+ 
+ 
+def do_GET(self): 
+parsed = urlparse(self.path) 
+route = parsed.path 
+ 
+if route in ("/", "/index.html"): 
+if not WEB_FILE.exists(): 
+self.send_error(404) 
+return 
+body = WEB_FILE.read_bytes() 
+self.send_response(200) 
+self.send_header("Content-Type", "text/html; charset=utf-8") 
+self.send_header("Content-Length", str(len(body))) 
+self.end_headers() 
+self.wfile.write(body) 
+ 
+ 
+elif route == "/api/status": 
+Linux System Administration E1ITA307 
+46 
+ 
+ 
+lines = LOG_FILE.read_text(errors="replace").splitlines() if LOG_FILE.exists() else [] 
+self.send_json({ 
+"total_entries": len(lines), 
+"errors": sum("ERROR" in x.upper() for x in lines), 
+"critical": sum("CRITICAL" in x.upper() for x in lines), 
+"failed_logins": sum("FAILED" in x.upper() for x in lines) 
+}) 
+ 
+ 
+elif route == "/api/logs": 
+lines = LOG_FILE.read_text(errors="replace").splitlines() if LOG_FILE.exists() else [] 
+self.send_json({"logs": lines[-200:]}) 
+ 
+elif route == "/api/alerts": 
+alerts = ALERT_FILE.read_text(errors="replace").splitlines() if ALERT_FILE.exists() 
+else [] 
+self.send_json({"alerts": alerts}) 
+ 
+ 
+elif route == "/api/monitor/status": 
+result = subprocess.run( 
+["pgrep", "-af", "auto_monitor.sh"], 
+capture_output=True, text=True 
+) 
+self.send_json({"running": result.returncode == 0}) 
+ 
+ 
+elif route == "/api/system-logs": 
+log_type = parse_qs(parsed.query).get("type", ["syslog"])[0] 
+Linux System Administration E1ITA307 
+47 
+ 
+ 
+files = { 
+"syslog": Path("/var/log/syslog"), 
+"auth": Path("/var/log/auth.log") 
+} 
+ 
+ 
+if log_type == "kernel": 
+result = subprocess.run( 
+["journalctl", "-k", "-n", "50", "--no-pager"], 
+capture_output=True, text=True 
+) 
+self.send_json({"logs": result.stdout.splitlines(), "error": result.stderr}) 
+elif log_type in files: 
+path = files[log_type] 
+try: 
+self.send_json({"logs": path.read_text(errors="replace").splitlines()[-50:]}) 
+except OSError as exc: 
+self.send_json({"error": str(exc)}, 403) 
+else: 
+self.send_json({"error": "Invalid log type"}, 400) 
+ 
+ 
+else: 
+self.send_error(404) 
+ 
+ 
+def do_POST(self): 
+parsed = urlparse(self.path) 
+route = parsed.path 
+Linux System Administration E1ITA307 
+48 
+ 
+ 
+length = int(self.headers.get("Content-Length", "0")) 
+ 
+ 
+try: 
+data = json.loads(self.rfile.read(length) or b"{}") 
+except json.JSONDecodeError: 
+self.send_json({"error": "Invalid JSON"}, 400) 
+return 
+ 
+scripts = { 
+"/api/failed-logins": "failed_login.sh", 
+"/api/report": "generate_report.sh", 
+"/api/analyze": "analyzer.sh" 
+} 
+ 
+ 
+if route == "/api/search": 
+keyword = str(data.get("keyword", "")).strip() 
+if not keyword or len(keyword) > 100: 
+self.send_json({"error": "Invalid keyword"}, 400) 
+return 
+result = subprocess.run( 
+["grep", "-inF", "--", keyword, str(LOG_FILE)], 
+capture_output=True, text=True 
+) 
+self.send_json({"results": result.stdout.splitlines()}) 
+ 
+ 
+elif route in scripts: 
+Linux System Administration E1ITA307 
+49 
+ 
+ 
+result = run_script(scripts[route]) 
+self.send_json({ 
+"output": result.stdout, 
+"error": result.stderr, 
+"returncode": result.returncode 
+}) 
+ 
+ 
+elif route == "/api/monitor/start": 
+subprocess.Popen( 
+["bash", str(PROJECT_DIR / "scripts" / "auto_monitor.sh")], 
+stdout=subprocess.DEVNULL, 
+stderr=subprocess.DEVNULL, 
+start_new_session=True 
+) 
+self.send_json({"message": "Monitor start requested"}) 
+ 
+ 
+elif route == "/api/monitor/stop": 
+subprocess.run(["pkill", "-f", "auto_monitor.sh"], capture_output=True) 
+self.send_json({"message": "Monitor stop requested"}) 
+ 
+else: 
+self.send_error(404) 
+ 
+ 
+def log_message(self, format, *args): 
+pass 
+Linux System Administration E1ITA307 
+50 
+ 
+ 
+if   name == "  main  ": 
+server = HTTPServer(("127.0.0.1", 8000), Handler) 
+print("Dashboard available at http://127.0.0.1:8000") 
+try: 
+server.serve_forever() 
+except KeyboardInterrupt: 
+print("\nServer stopped.") 
+server.server_close() 
+C.10 Web Dashboard — web/index.html 
+Purpose: Provides a browser-based interface for viewing monitoring statistics, searching logs, 
+reviewing alerts, and controlling monitoring operations. 
+<!DOCTYPE html> 
+<html lang="en"> 
+<head> 
+<meta charset="UTF-8"> 
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<title>Linux Log Monitoring & Alert System</title> 
+<style> 
+body { 
+font-family: Arial, sans-serif; 
+background: #101827; 
+color: #f3f4f6; 
+margin: 0; 
+padding: 24px; 
+} 
+h1 { color: #60a5fa; } 
+Linux System Administration E1ITA307 
+51 
+ 
+ 
+.cards { 
+display: grid; 
+grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
+gap: 16px; 
+} 
+.card, section { 
+background: #1f2937; 
+border-radius: 10px; 
+padding: 18px; 
+margin-bottom: 18px; 
+} 
+button, input, select { 
+padding: 10px; 
+margin: 5px; 
+border-radius: 5px; 
+border: 0; 
+} 
+button { 
+background: #2563eb; 
+color: white; 
+cursor: pointer; 
+} 
+pre { 
+white-space: pre-wrap; 
+overflow-wrap: anywhere; 
+max-height: 350px; 
+Linux System Administration E1ITA307 
+52 
+ 
+ 
+overflow-y: auto; 
+} 
+.error { color: #f87171; } 
+.critical { color: #fbbf24; } 
+</style> 
+</head> 
+<body> 
+<h1>Linux Log Monitoring & Alert System</h1> 
+<p>Local log monitoring dashboard</p> 
+ 
+ 
+<div class="cards"> 
+<div class="card">Total Entries<h2 id="total">0</h2></div> 
+<div class="card">Errors<h2 id="errors">0</h2></div> 
+<div class="card">Critical<h2 id="critical">0</h2></div> 
+<div class="card">Failed Logins<h2 id="failed">0</h2></div> 
+</div> 
+ 
+ 
+<section> 
+<h2>Monitoring Controls</h2> 
+<button onclick="post('/api/monitor/start')">Start Monitoring</button> 
+<button onclick="post('/api/monitor/stop')">Stop Monitoring</button> 
+<button onclick="refresh()">Refresh Dashboard</button> 
+<p id="status">Loading status...</p> 
+</section> 
+ 
+ 
+<section> 
+Linux System Administration E1ITA307 
+53 
+ 
+ 
+<h2>Search Logs</h2> 
+<input id="keyword" placeholder="Enter keyword"> 
+<button onclick="searchLogs()">Search</button> 
+<pre id="searchResults"></pre> 
+</section> 
+ 
+ 
+<section> 
+<h2>Log Operations</h2> 
+<button onclick="post('/api/failed-logins')">Detect Failed Logins</button> 
+<button onclick="post('/api/analyze')">Analyze Logs</button> 
+<button onclick="post('/api/report')">Generate Report</button> 
+<pre id="operationResults"></pre> 
+</section> 
+ 
+ 
+<section> 
+<h2>Recent Log Entries</h2> 
+<pre id="logs">Loading logs...</pre> 
+</section> 
+ 
+ 
+<section> 
+<h2>System Logs</h2> 
+<select id="logType"> 
+<option value="syslog">System</option> 
+<option value="auth">Authentication</option> 
+<option value="kernel">Kernel</option> 
+</select> 
+Linux System Administration E1ITA307 
+54 
+ 
+ 
+<button onclick="loadSystemLogs()">View System Logs</button> 
+<pre id="systemLogs"></pre> 
+</section> 
+ 
+ 
+<section> 
+<h2>Alert History</h2> 
+<button onclick="loadAlerts()">Refresh Alerts</button> 
+<pre id="alerts"></pre> 
+</section> 
+ 
+ 
+<script> 
+async function getJSON(url) { 
+const response = await fetch(url); 
+return await response.json(); 
+} 
+ 
+ 
+async function post(url, data = {}) { 
+const response = await fetch(url, { 
+method: "POST", 
+headers: {"Content-Type": "application/json"}, 
+body: JSON.stringify(data) 
+}); 
+const result = await response.json(); 
+document.getElementById("operationResults").textContent = 
+JSON.stringify(result, null, 2); 
+await refresh(); 
+Linux System Administration E1ITA307 
+55 
+ 
+ 
+} 
+ 
+ 
+async function refresh() { 
+try { 
+const status = await getJSON("/api/status"); 
+document.getElementById("total").textContent = status.total_entries ?? 0; 
+document.getElementById("errors").textContent = status.errors ?? 0; 
+document.getElementById("critical").textContent = status.critical ?? 0; 
+document.getElementById("failed").textContent = status.failed_logins ?? 0; 
+ 
+const logs = await getJSON("/api/logs"); 
+document.getElementById("logs").textContent = 
+(logs.logs || []).join("\n"); 
+ 
+ 
+const monitor = await getJSON("/api/monitor/status"); 
+document.getElementById("status").textContent = 
+monitor.running ? "Monitoring status: Running" : 
+"Monitoring status: Stopped"; 
+} catch (error) { 
+document.getElementById("status").textContent = 
+"Unable to connect to local server: " + error.message; 
+} 
+} 
+ 
+ 
+async function searchLogs() { 
+await post("/api/search", { 
+Linux System Administration E1ITA307 
+56 
+ 
+ 
+keyword: document.getElementById("keyword").value 
+}); 
+const result = await getJSON("/api/logs"); 
+document.getElementById("searchResults").textContent = 
+(result.logs || []).filter(line => 
+line.toLowerCase().includes( 
+document.getElementById("keyword").value.toLowerCase() 
+)).join("\n") || "No matching entries found."; 
+} 
+ 
+ 
+async function loadAlerts() { 
+const result = await getJSON("/api/alerts"); 
+document.getElementById("alerts").textContent = 
+(result.alerts || []).join("\n") || "No saved alerts."; 
+} 
+async function loadSystemLogs() { 
+const type = document.getElementById("logType").value; 
+const result = await getJSON("/api/system-logs?type=" + type); 
+document.getElementById("systemLogs").textContent = 
+result.error || (result.logs || []).join("\n"); 
+} 
+refresh(); 
+loadAlerts(); 
+</script> 
+</body> 
+</html>
